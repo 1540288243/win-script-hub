@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Win脚本中心</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>⚡ 脚本中心</h1>
+            </div>
+            
+            <div class="config-section">
+                <h3>📁 脚本目录</h3>
+                <div class="script-dir">
+                    <span id="scriptDir" class="dir-path" title="">未设置</span>
+                    <button id="btnBrowseDir" class="btn-small">浏览</button>
+                </div>
+            </div>
+            
+            <div class="categories">
+                <h3>📂 分类</h3>
+                <ul id="categoryList">
+                    <li class="active" data-category="all">全部脚本</li>
+                </ul>
+                <button id="btnAddCategory" class="btn-small">+ 新分类</button>
+            </div>
+        </aside>
+        
+        <!-- 主内容 -->
+        <main class="main-content">
+            <header class="header">
+                <h2 id="currentView">全部脚本</h2>
+                <div class="header-actions">
+                    <button id="btnScanDir" class="btn-secondary">🔍 扫描目录</button>
+                    <button id="btnImport" class="btn-secondary">📥 导入</button>
+                    <button id="btnExport" class="btn-secondary">📤 导出</button>
+                    <button id="btnAddScript" class="btn-primary">➕ 添加脚本</button>
+                </div>
+            </header>
+
+            <div id="loadingIndicator" class="loading-indicator" style="display:none;">
+                <span>加载中...</span>
+            </div>
+
+            <div id="scriptList" class="script-list">
+                <!-- 脚本卡片将在这里动态生成 -->
+            </div>
+
+            <div id="emptyState" class="empty-state">
+                <p>暂无脚本</p>
+                <p>点击右上角「添加脚本」开始使用</p>
+            </div>
+        </main>
+    </div>
+    
+    <!-- 添加/编辑脚本弹窗 -->
+    <div id="scriptModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">添加脚本</h3>
+            <form id="scriptForm">
+                <input type="hidden" id="scriptId">
+                
+                <div class="form-group">
+                    <label>脚本名称 *</label>
+                    <input type="text" id="scriptName" required placeholder="给脚本起个名字">
+                </div>
+                
+                <div class="form-group">
+                    <label>脚本路径 *</label>
+                    <div class="file-input">
+                        <input type="text" id="scriptPath" required placeholder="选择 .bat 或 .cmd 文件">
+                        <button type="button" id="btnBrowseFile" class="btn-small">浏览</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>分类</label>
+                    <select id="scriptCategory">
+                        <option value="默认">默认</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea id="scriptDesc" rows="2" placeholder="简单描述脚本用途"></textarea>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="scriptAutoStart">
+                        开机自启
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="btnCancel" class="btn-secondary">取消</button>
+                    <button type="submit" class="btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 添加分类弹窗 -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content modal-small">
+            <h3>添加分类</h3>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label>分类名称</label>
+                    <input type="text" id="categoryName" required placeholder="输入分类名称">
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="btnCancelCategory" class="btn-secondary">取消</button>
+                    <button type="submit" class="btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

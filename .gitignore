@@ -1,0 +1,38 @@
+# Rust build output
+src-tauri/target/
+
+# Frontend build output
+dist/
+
+# Node dependencies
+node_modules/
+
+# Temporary/backup folders
+JiaoBenTemp/
+脚本目录/
+
+# Backup zip
+*-backup*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Icons generated files (keep source icons only)
+src-tauri/icons/*.ico
+src-tauri/icons/*.png
+!src-tauri/icons/icon.png
+!src-tauri/icons/icon.ico
+
+# Logs
+*.log
+
+# Release executables (keep source, not builds)
+*.exe
+*.dll

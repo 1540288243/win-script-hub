@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Win脚本中心",
+  "version": "1.0.0",
+  "identifier": "com.lms.win-script-hub",
+  "build": {
+    "devtools": true
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Win脚本中心",
+        "width": 900,
+        "height": 650,
+        "minWidth": 700,
+        "minHeight": 500,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}
