@@ -40,6 +40,7 @@
                     <button id="btnImport" class="btn-secondary">📥 导入</button>
                     <button id="btnExport" class="btn-secondary">📤 导出</button>
                     <button id="btnAddScript" class="btn-primary">➕ 添加脚本</button>
+                    <button id="btnSettings" class="btn-secondary">⚙️ 设置</button>
                 </div>
             </header>
 
@@ -117,6 +118,34 @@
                 <div class="form-actions">
                     <button type="button" id="btnCancelCategory" class="btn-secondary">取消</button>
                     <button type="submit" class="btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content modal-small">
+            <h3>⚙️ 设置</h3>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label>关闭按钮行为</label>
+                    <select id="closeAction">
+                        <option value="to_tray">最小化到托盘</option>
+                        <option value="quit">彻底关闭</option>
+                    </select>
+                    <small style="color: #888;">选择点击关闭按钮时的行为</small>
+                </div>
+
+                <div class="form-group">
+                    <label>全局快捷键</label>
+                    <input type="text" id="globalShortcut" placeholder="如: Ctrl+Shift+S" value="Ctrl+Shift+S">
+                    <small style="color: #888;">按下快捷键显示主界面，支持 Ctrl/Shift/Alt/Win + 字母/数字/F1-F12</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="btnCancelSettings" class="btn-secondary">取消</button>
+                    <button type="submit" class="btn-primary">保存</button>
                 </div>
             </form>
         </div>

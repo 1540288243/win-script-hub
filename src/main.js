@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!config.categories || config.categories.length === 0) {
             config.categories = ['默认'];
         }
+        // 确保 close_action 字段存在（兼容旧配置）
+        if (!config.close_action) {
+            config.close_action = 'to_tray';
+        }
         // 更新脚本目录显示
         const dirEl = document.getElementById('scriptDir');
         dirEl.textContent = config.script_dir || '未设置';
@@ -50,6 +54,11 @@ function bindEvents() {
 
     // 导出配置
     document.getElementById('btnExport').addEventListener('click', exportConfig);
+
+    // 设置
+    document.getElementById('btnSettings').addEventListener('click', openSettings);
+    document.getElementById('settingsForm').addEventListener('submit', handleSettingsSubmit);
+    document.getElementById('btnCancelSettings').addEventListener('click', closeSettingsModal);
 
     // 脚本表单
     document.getElementById('scriptForm').addEventListener('submit', handleScriptSubmit);
@@ -700,4 +709,53 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+// ============ 设置面板 ============
+function openSettings() {
+    const modal = document.getElementById('settingsModal');
+    document.getElementById('closeAction').value = config.close_action || 'to_tray';
+    document.getElementById('globalShortcut').value = config.global_shortcut || 'Ctrl+Shift+S';
+    modal.classList.add('visible');
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').classList.remove('visible');
+}
+
+async function handleSettingsSubmit(e) {
+    e.preventDefault();
+
+    const closeAction = document.getElementById('closeAction').value;
+    const globalShortcut = document.getElementById('globalShortcut').value.trim();
+
+    // 验证快捷键格式
+    if (globalShortcut && !/^[A-Z0-9]+(\+[A-Z0-9]+)*$/i.test(globalShortcut)) {
+        showToast('快捷键格式错误，请使用如 Ctrl+Shift+S 的格式', 'error');
+        return;
+    }
+
+    try {
+        // 更新配置
+        config.close_action = closeAction;
+        config.global_shortcut = globalShortcut;
+
+        // 保存配置
+        await saveConfig();
+
+        // 注册全局快捷键
+        if (globalShortcut) {
+            try {
+                await invoke('register_global_shortcut', { shortcut: globalShortcut });
+                showToast('设置已保存，快捷键已注册', 'success');
+            } catch (shortcutErr) {
+                console.error('注册快捷键失败:', shortcutErr);
+                showToast('设置已保存，但快捷键注册失败: ' + shortcutErr, 'error');
+            }
+        }
+
+        closeSettingsModal();
+    } catch (err) {
+        showToast('保存设置失败: ' + err, 'error');
+    }
 }

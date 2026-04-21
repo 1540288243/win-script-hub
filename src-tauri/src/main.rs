@@ -5,6 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptInfo {
@@ -16,12 +21,22 @@ pub struct ScriptInfo {
     pub auto_start: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppConfig {
     pub script_dir: String,
     pub scripts: Vec<ScriptInfo>,
     #[serde(default)]
     pub categories: Vec<String>,
+    /// 关闭按钮行为: "to_tray" = 最小化到托盘, "quit" = 彻底关闭
+    #[serde(default = "default_close_action")]
+    pub close_action: String,
+    /// 全局快捷键，格式如 "Ctrl+Shift+S"
+    #[serde(default)]
+    pub global_shortcut: String,
+}
+
+fn default_close_action() -> String {
+    "to_tray".to_string()
 }
 
 impl Default for AppConfig {
@@ -36,6 +51,8 @@ impl Default for AppConfig {
             script_dir: default_dir,
             scripts: vec![],
             categories: vec!["默认".to_string()],
+            close_action: default_close_action(),
+            global_shortcut: "Ctrl+Shift+S".to_string(),
         }
     }
 }
@@ -315,7 +332,6 @@ fn run_script(path: String) -> Result<String, String> {
     match extension.as_str() {
         "bat" | "cmd" => {
             // 使用 start 命令弹出新窗口运行，支持中文路径和带空格路径
-            // start 语法: start "窗口标题" "脚本路径"
             Command::new("cmd")
                 .args(["/c", "start", "", &path])
                 .spawn()
@@ -414,12 +430,7 @@ fn gbk_to_string(bytes: &[u8]) -> String {
 }
 
 fn gbk_to_unicode(gbk: u16) -> Option<char> {
-    match gbk {
-        _ if gbk >= 0xB0A1 && gbk <= 0xF7FE => {
-            char::from_u32(gbk as u32)
-        }
-        _ => char::from_u32(gbk as u32),
-    }
+    char::from_u32(gbk as u32)
 }
 
 #[tauri::command]
@@ -515,9 +526,133 @@ fn create_category_folder(script_dir: String, category: String) -> Result<(), St
     fs::create_dir_all(&folder).map_err(|e| e.to_string())
 }
 
+// ============ 全局快捷键注册 ============
+#[tauri::command]
+fn register_global_shortcut(shortcut: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+    // 解析快捷键字符串，如 "Ctrl+Shift+S"
+    let parts: Vec<&str> = shortcut.split('+').collect();
+    if parts.is_empty() {
+        return Err("快捷键格式错误".to_string());
+    }
+
+    // 构建快捷键
+    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
+    let mut mods = Modifiers::empty();
+    let mut key_code: Option<Code> = None;
+
+    for part in &parts {
+        match part.trim().to_uppercase().as_str() {
+            "CTRL" | "CONTROL" => mods |= Modifiers::CONTROL,
+            "SHIFT" => mods |= Modifiers::SHIFT,
+            "ALT" => mods |= Modifiers::ALT,
+            "WIN" | "WINDOWS" => mods |= Modifiers::SUPER,
+            // 功能键
+            "F1" => key_code = Some(Code::F1),
+            "F2" => key_code = Some(Code::F2),
+            "F3" => key_code = Some(Code::F3),
+            "F4" => key_code = Some(Code::F4),
+            "F5" => key_code = Some(Code::F5),
+            "F6" => key_code = Some(Code::F6),
+            "F7" => key_code = Some(Code::F7),
+            "F8" => key_code = Some(Code::F8),
+            "F9" => key_code = Some(Code::F9),
+            "F10" => key_code = Some(Code::F10),
+            "F11" => key_code = Some(Code::F11),
+            "F12" => key_code = Some(Code::F12),
+            // 字母键
+            "A" => key_code = Some(Code::KeyA),
+            "B" => key_code = Some(Code::KeyB),
+            "C" => key_code = Some(Code::KeyC),
+            "D" => key_code = Some(Code::KeyD),
+            "E" => key_code = Some(Code::KeyE),
+            "F" => key_code = Some(Code::KeyF),
+            "G" => key_code = Some(Code::KeyG),
+            "H" => key_code = Some(Code::KeyH),
+            "I" => key_code = Some(Code::KeyI),
+            "J" => key_code = Some(Code::KeyJ),
+            "K" => key_code = Some(Code::KeyK),
+            "L" => key_code = Some(Code::KeyL),
+            "M" => key_code = Some(Code::KeyM),
+            "N" => key_code = Some(Code::KeyN),
+            "O" => key_code = Some(Code::KeyO),
+            "P" => key_code = Some(Code::KeyP),
+            "Q" => key_code = Some(Code::KeyQ),
+            "R" => key_code = Some(Code::KeyR),
+            "S" => key_code = Some(Code::KeyS),
+            "T" => key_code = Some(Code::KeyT),
+            "U" => key_code = Some(Code::KeyU),
+            "V" => key_code = Some(Code::KeyV),
+            "W" => key_code = Some(Code::KeyW),
+            "X" => key_code = Some(Code::KeyX),
+            "Y" => key_code = Some(Code::KeyY),
+            "Z" => key_code = Some(Code::KeyZ),
+            // 数字键
+            "0" => key_code = Some(Code::Digit0),
+            "1" => key_code = Some(Code::Digit1),
+            "2" => key_code = Some(Code::Digit2),
+            "3" => key_code = Some(Code::Digit3),
+            "4" => key_code = Some(Code::Digit4),
+            "5" => key_code = Some(Code::Digit5),
+            "6" => key_code = Some(Code::Digit6),
+            "7" => key_code = Some(Code::Digit7),
+            "8" => key_code = Some(Code::Digit8),
+            "9" => key_code = Some(Code::Digit9),
+            // 其他常用键
+            "SPACE" => key_code = Some(Code::Space),
+            "ENTER" | "RETURN" => key_code = Some(Code::Enter),
+            "TAB" => key_code = Some(Code::Tab),
+            "ESCAPE" | "ESC" => key_code = Some(Code::Escape),
+            _ => {}
+        }
+    }
+
+    let Some(key) = key_code else {
+        return Err("无效的快捷键".to_string());
+    };
+
+    let shortcut_obj = Shortcut::new(Some(mods), key);
+
+    // 取消之前可能已注册的相同快捷键
+    let _ = app_handle.global_shortcut().unregister(shortcut_obj.clone());
+
+    // 注册新快捷键
+    let handle_clone = app_handle.clone();
+    app_handle.global_shortcut().on_shortcut(shortcut_obj, move |_app, _shortcut, _event| {
+        // 快捷键被触发，显示主窗口
+        if let Some(window) = handle_clone.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+            let _ = window.unminimize();
+        }
+    }).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ============ 显示/隐藏窗口命令 ============
+#[tauri::command]
+fn hide_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn show_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        window.unminimize().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             // 配置
             load_config_cmd,
@@ -546,17 +681,178 @@ fn main() {
             update_category,
             delete_category,
             open_category_folder,
+            // 窗口控制
+            hide_window,
+            show_window,
+            register_global_shortcut,
         ])
-        .setup(|_app| {
+        .setup(|app| {
             // 启动时初始化分类文件夹
             if let Ok(config) = load_config() {
                 for cat in &config.categories {
                     let folder = PathBuf::from(&config.script_dir).join(cat);
                     fs::create_dir_all(&folder).ok();
                 }
+
+                // 注册全局快捷键
+                if !config.global_shortcut.is_empty() {
+                    let handle = app.handle().clone();
+                    let shortcut = config.global_shortcut.clone();
+                    std::thread::spawn(move || {
+                        // 延迟注册，等应用完全启动
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        if let Err(e) = register_global_shortcut_internal(&handle, &shortcut) {
+                            eprintln!("注册快捷键失败: {}", e);
+                        }
+                    });
+                }
             }
+
+            // 创建系统托盘
+            let show_item = MenuItem::with_id(app, "show", "显示主界面", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "彻底退出", true, None::<&str>)?;
+
+            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .tooltip("Win脚本中心")
+                .on_menu_event(|app, event| {
+                    match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                let _ = window.unminimize();
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    // 双击托盘图标显示窗口
+                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = window.unminimize();
+                        }
+                    }
+                })
+                .build(app)?;
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // 拦截窗口关闭事件
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let config = load_config().unwrap_or_default();
+
+                if config.close_action == "to_tray" {
+                    // 最小化到托盘
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                // 如果是 quit，直接关闭
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// 内部快捷键注册函数
+fn register_global_shortcut_internal(app_handle: &tauri::AppHandle, shortcut: &str) -> Result<(), String> {
+    let parts: Vec<&str> = shortcut.split('+').collect();
+    if parts.is_empty() {
+        return Err("快捷键格式错误".to_string());
+    }
+
+    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
+    let mut mods = Modifiers::empty();
+    let mut key_code: Option<Code> = None;
+
+    for part in &parts {
+        match part.trim().to_uppercase().as_str() {
+            "CTRL" | "CONTROL" => mods |= Modifiers::CONTROL,
+            "SHIFT" => mods |= Modifiers::SHIFT,
+            "ALT" => mods |= Modifiers::ALT,
+            "WIN" | "WINDOWS" => mods |= Modifiers::SUPER,
+            "F1" => key_code = Some(Code::F1),
+            "F2" => key_code = Some(Code::F2),
+            "F3" => key_code = Some(Code::F3),
+            "F4" => key_code = Some(Code::F4),
+            "F5" => key_code = Some(Code::F5),
+            "F6" => key_code = Some(Code::F6),
+            "F7" => key_code = Some(Code::F7),
+            "F8" => key_code = Some(Code::F8),
+            "F9" => key_code = Some(Code::F9),
+            "F10" => key_code = Some(Code::F10),
+            "F11" => key_code = Some(Code::F11),
+            "F12" => key_code = Some(Code::F12),
+            "A" => key_code = Some(Code::KeyA),
+            "B" => key_code = Some(Code::KeyB),
+            "C" => key_code = Some(Code::KeyC),
+            "D" => key_code = Some(Code::KeyD),
+            "E" => key_code = Some(Code::KeyE),
+            "F" => key_code = Some(Code::KeyF),
+            "G" => key_code = Some(Code::KeyG),
+            "H" => key_code = Some(Code::KeyH),
+            "I" => key_code = Some(Code::KeyI),
+            "J" => key_code = Some(Code::KeyJ),
+            "K" => key_code = Some(Code::KeyK),
+            "L" => key_code = Some(Code::KeyL),
+            "M" => key_code = Some(Code::KeyM),
+            "N" => key_code = Some(Code::KeyN),
+            "O" => key_code = Some(Code::KeyO),
+            "P" => key_code = Some(Code::KeyP),
+            "Q" => key_code = Some(Code::KeyQ),
+            "R" => key_code = Some(Code::KeyR),
+            "S" => key_code = Some(Code::KeyS),
+            "T" => key_code = Some(Code::KeyT),
+            "U" => key_code = Some(Code::KeyU),
+            "V" => key_code = Some(Code::KeyV),
+            "W" => key_code = Some(Code::KeyW),
+            "X" => key_code = Some(Code::KeyX),
+            "Y" => key_code = Some(Code::KeyY),
+            "Z" => key_code = Some(Code::KeyZ),
+            "0" => key_code = Some(Code::Digit0),
+            "1" => key_code = Some(Code::Digit1),
+            "2" => key_code = Some(Code::Digit2),
+            "3" => key_code = Some(Code::Digit3),
+            "4" => key_code = Some(Code::Digit4),
+            "5" => key_code = Some(Code::Digit5),
+            "6" => key_code = Some(Code::Digit6),
+            "7" => key_code = Some(Code::Digit7),
+            "8" => key_code = Some(Code::Digit8),
+            "9" => key_code = Some(Code::Digit9),
+            "SPACE" => key_code = Some(Code::Space),
+            "ENTER" | "RETURN" => key_code = Some(Code::Enter),
+            "TAB" => key_code = Some(Code::Tab),
+            "ESCAPE" | "ESC" => key_code = Some(Code::Escape),
+            _ => {}
+        }
+    }
+
+    let Some(key) = key_code else {
+        return Err("无效的快捷键".to_string());
+    };
+
+    let shortcut_obj = Shortcut::new(Some(mods), key);
+    let handle_clone = app_handle.clone();
+
+    app_handle.global_shortcut().on_shortcut(shortcut_obj, move |_app, _shortcut, _event| {
+        if let Some(window) = handle_clone.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+            let _ = window.unminimize();
+        }
+    }).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
